@@ -13,7 +13,7 @@ import {
   LogIn, LogOut, Mail, type LucideIcon,
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LiveActionModal, type ActionMode } from "@/components/live-action-modal";
+import { LiveActionModal, englishToTamil, type ActionMode } from "@/components/live-action-modal";
 import { EnterpriseSuite, type EnterpriseModule } from "@/components/enterprise-suite";
 import { syncCatalogToCloud, type CatalogInput } from "@/lib/nila-cloud";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -45,6 +45,7 @@ type CustomerRecord = { id: string; name: string; phone: string | null; email: s
 type SupplierRecord = { id: string; name: string; phone: string | null; email: string | null; opening_balance: number; credit_days: number; active: boolean };
 type StaffRecord = { user_id: string; display_name: string | null; role: string; active: boolean; created_at: string };
 type StoreProfile = { name: string; gstin: string; phone: string; email: string; address: string; invoice_prefix: string };
+type ProfitSummary = { sales: number; cost: number; gross_profit: number; margin_percent: number };
 
 const productsSeed: Product[] = [
   { id: "demo-1", name: "Aavin Full Cream Milk", tamil: "ஆவின் பால்", category: "Dairy", icon: "🥛", unit: "500 ml", price: 32, mrp: 32, stock: 48, gst: 0, barcode: "890123450001", tint: "sky" },
@@ -117,6 +118,7 @@ export default function Home() {
   const [barcodeValue, setBarcodeValue] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [mobileBillOpen, setMobileBillOpen] = useState(false);
+  const [catalogView, setCatalogView] = useState<"grid" | "list">("grid");
   const [paymentMode, setPaymentMode] = useState<"Cash" | "UPI" | "Card">("Cash");
   const [cashReceived, setCashReceived] = useState("");
   const [toast, setToast] = useState("");
@@ -146,6 +148,9 @@ export default function Home() {
   const [billingCustomerName, setBillingCustomerName] = useState("");
   const [billingCustomerPhone, setBillingCustomerPhone] = useState("");
   const [lastReceipt, setLastReceipt] = useState<{ invoice: string; total: number; items: CartItem[]; customerName: string; customerPhone: string } | null>(null);
+  const [undoSale, setUndoSale] = useState<{ id: string; invoice: string; seconds: number } | null>(null);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [profitSummary, setProfitSummary] = useState<ProfitSummary>({ sales: 0, cost: 0, gross_profit: 0, margin_percent: 0 });
   const [invoiceLabel, setInvoiceLabel] = useState("NS-NEW");
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
@@ -156,6 +161,7 @@ export default function Home() {
   const [actionMode, setActionMode] = useState<ActionMode | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const t = copy[language];
@@ -197,6 +203,16 @@ export default function Home() {
     const address = typeof profile.address === "string" ? profile.address : profile.address ? Object.values(profile.address).filter(Boolean).join(", ") : "";
     setStoreProfile({ name: profile.name, gstin: profile.gstin || "", phone: profile.phone || "", email: profile.email || "", address, invoice_prefix: profile.invoice_prefix });
     setStoreName(profile.name);
+    const { data: profitData, error: profitError } = await supabase.rpc("profit_summary", { p_store_id: activeStoreId });
+    if (!profitError && profitData) {
+      const p = profitData as Record<string, unknown>;
+      setProfitSummary({
+        sales: Number(p.sales || 0),
+        cost: Number(p.cost || 0),
+        gross_profit: Number(p.gross_profit || 0),
+        margin_percent: Number(p.margin_percent || 0),
+      });
+    }
   }, []);
 
   const loadCloudWorkspace = useCallback(async (userId: string, email = "") => {
@@ -237,6 +253,17 @@ export default function Home() {
     const update = () => { const now = new Date(); setClock(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })); setDateLabel(now.toLocaleDateString(language === "ta" ? "ta-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" })); };
     update(); const timer = window.setInterval(update, 30_000); return () => window.clearInterval(timer);
   }, [language]);
+  useEffect(() => {
+    if (!undoSale) return;
+    const timer = window.setInterval(() => {
+      setUndoSale((current) => {
+        if (!current) return null;
+        if (current.seconds <= 1) return null;
+        return { ...current, seconds: current.seconds - 1 };
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [undoSale?.id]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "F2") { event.preventDefault(); setSection("billing"); window.setTimeout(() => barcodeRef.current?.focus(), 40); } if (event.key === "F4") { event.preventDefault(); setPaymentOpen(true); } if (event.key === "Escape") setPaymentOpen(false); };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
@@ -367,19 +394,95 @@ export default function Home() {
         p_notes: null,
       });
       if (error) throw new Error(error.message || error.details || error.hint || "Sale transaction failed");
-      const result = data as { invoice_no?: string } | null;
+      const result = data as { sale_id?: string; invoice_no?: string } | null;
       const completedInvoice = result?.invoice_no || "NS-SAVED";
       const receiptItems = [...cart];
       setLastReceipt({ invoice: completedInvoice, total: roundedTotal, items: receiptItems, customerName: billingCustomerName.trim(), customerPhone: billingCustomerPhone.trim() });
-      setPaymentOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
+      if (result?.sale_id) setUndoSale({ id: result.sale_id, invoice: completedInvoice, seconds: 30 });
+      setPaymentOpen(false); setMobileBillOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
+      setBillingCustomerName(""); setBillingCustomerPhone("");
       await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
-      notify(`Sale ${completedInvoice} saved successfully — Print receipt is ready`);
+      notify(`Sale ${completedInvoice} saved — Undo available for 30 seconds`);
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : "Sale could not be completed";
       setSaleError(message);
       notify(message);
     } finally { setSaleBusy(false); }
   };
+  const undoLastSale = async () => {
+    if (!undoSale || !storeId || undoBusy) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setUndoBusy(true);
+    try {
+      const { error } = await supabase.rpc("undo_sale_30s", { p_store_id: storeId, p_sale_id: undoSale.id });
+      if (error) throw error;
+      const invoice = undoSale.invoice;
+      setUndoSale(null);
+      setInvoiceLabel("NS-NEW");
+      await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
+      notify(`${invoice} undone — stock and payment reversal recorded`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not undo this sale");
+    } finally { setUndoBusy(false); }
+  };
+
+  const printLastReceipt = () => {
+    if (!lastReceipt) return;
+    const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[char] || char));
+    const popup = window.open("", "_blank", "width=420,height=720");
+    if (!popup) { notify("Allow pop-ups to print the receipt"); return; }
+    const rows = lastReceipt.items.map((item) => `<tr><td>${esc(item.name)}</td><td>${item.quantity}</td><td>₹${(item.price * item.quantity).toFixed(2)}</td></tr>`).join("");
+    popup.document.write(`<!doctype html><html><head><title>${esc(lastReceipt.invoice)}</title><style>body{font:14px Arial;padding:14px;width:76mm;color:#111}h2,p{margin:4px 0;text-align:center}table{width:100%;border-collapse:collapse;margin:14px 0}th,td{padding:6px 2px;border-bottom:1px dashed #bbb;text-align:left}th:nth-child(2),td:nth-child(2){text-align:center}th:last-child,td:last-child{text-align:right}.total{font-size:19px;font-weight:700;text-align:right}.muted{font-size:12px;color:#555}</style></head><body><h2>${esc(storeName)}</h2><p>${esc(lastReceipt.invoice)}</p>${lastReceipt.customerName ? `<p class="muted">${esc(lastReceipt.customerName)} ${esc(lastReceipt.customerPhone)}</p>` : ""}<table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total ₹${lastReceipt.total.toFixed(2)}</div><p class="muted">Thank you. Visit again!</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+    popup.document.close();
+  };
+
+  const saveEditedProduct = async (formData: FormData) => {
+    if (!editingProduct || !storeId) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const value = (name: string) => String(formData.get(name) || "").trim();
+    const numberValue = (name: string) => Number(value(name) || 0);
+    setActionBusy(true); setActionError("");
+    try {
+      const categoryName = value("category");
+      let categoryId: string | null = null;
+      if (categoryName) {
+        const { data: categoryRow, error: categoryError } = await supabase.from("categories").upsert({
+          store_id: storeId, name_en: categoryName, active: true,
+        }, { onConflict: "store_id,name_en" }).select("id").single();
+        if (categoryError) throw categoryError;
+        categoryId = String(categoryRow.id);
+      }
+      const { error: productError } = await supabase.from("products").update({
+        name_en: value("name"),
+        name_ta: value("tamil") || null,
+        category_id: categoryId,
+        unit: "unit",
+        unit_size: 1,
+        selling_price: Math.max(0, numberValue("price")),
+        mrp: Math.max(numberValue("price"), numberValue("mrp")),
+        current_stock: Math.max(0, Math.round(numberValue("stock"))),
+        gst_rate: Math.min(100, Math.max(0, numberValue("gst"))),
+      }).eq("id", editingProduct.id).eq("store_id", storeId);
+      if (productError) throw productError;
+
+      const { error: deleteBarcodeError } = await supabase.from("product_barcodes").delete().eq("store_id", storeId).eq("product_id", editingProduct.id);
+      if (deleteBarcodeError) throw deleteBarcodeError;
+      if (value("barcode")) {
+        const { error: barcodeError } = await supabase.from("product_barcodes").insert({
+          store_id: storeId, product_id: editingProduct.id, barcode: value("barcode"), is_primary: true,
+        });
+        if (barcodeError) throw barcodeError;
+      }
+      await loadProductsFromCloud(storeId);
+      setEditingProduct(null);
+      notify("Product updated");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Product could not be updated");
+    } finally { setActionBusy(false); }
+  };
+
   const openLiveAction = (mode: ActionMode) => {
     if (cloudStatus !== "live" || !storeId) { setAuthMode("signin"); setAuthOpen(true); notify("Sign in to save this action"); return; }
     setActionError(""); setActionMode(mode);
@@ -394,9 +497,9 @@ export default function Home() {
       if (mode === "product") {
         await syncCatalogToCloud(supabase, storeId, [{
           name: value("name"), tamil: value("tamil"), barcode: value("barcode"),
-          category: value("category"), unit: value("unit"), price: numberValue("price"),
-          mrp: numberValue("mrp"), stock: numberValue("stock"), gst: numberValue("gst"),
-          icon: "📦", tint: "blue",
+          category: value("category"), unit: "unit", price: numberValue("price"),
+          mrp: numberValue("mrp"), stock: Math.max(0, Math.round(numberValue("stock"))), gst: numberValue("gst"),
+          icon: "", tint: "blue",
         }]);
         await loadProductsFromCloud(storeId);
       } else if (mode === "customer" || mode === "supplier") {
