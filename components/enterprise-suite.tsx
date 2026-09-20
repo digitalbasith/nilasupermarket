@@ -156,9 +156,31 @@ export function EnterpriseSuite(props: Props) {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [lineBusy, setLineBusy] = useState(false);
   const [selectedReport, setSelectedReport] = useState("sales");
+  const [reportProfit, setReportProfit] = useState<ProfitSummary>(profitSummary);
   const [fromDate, setFromDate] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10));
   const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10));
   const title = moduleCopy[module];
+
+  useEffect(() => { setReportProfit(profitSummary); }, [profitSummary]);
+  useEffect(() => {
+    if (!storeId || !live) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    void supabase.rpc("profit_summary", {
+      p_store_id: storeId,
+      p_from: `${fromDate}T00:00:00+05:30`,
+      p_to: `${toDate}T23:59:59+05:30`,
+    }).then(({ data, error }) => {
+      if (error || !data) return;
+      const row = data as Record<string, unknown>;
+      setReportProfit({
+        sales: Number(row.sales || 0),
+        cost: Number(row.cost || 0),
+        gross_profit: Number(row.gross_profit || 0),
+        margin_percent: Number(row.margin_percent || 0),
+      });
+    });
+  }, [storeId, live, fromDate, toDate]);
 
   const loadExtended = useCallback(async () => {
     if (!storeId || !live) { setAccounts([]); setReturns([]); setDocuments([]); return; }
@@ -226,7 +248,7 @@ export function EnterpriseSuite(props: Props) {
   const filteredPurchases = useMemo(() => purchases.filter((row) => (!fromDate || row.invoice_date >= fromDate) && (!toDate || row.invoice_date <= toDate)), [purchases, fromDate, toDate]);
   const filteredAccounts = useMemo(() => accounts.filter((row) => (!fromDate || row.entry_date >= fromDate) && (!toDate || row.entry_date <= toDate)), [accounts, fromDate, toDate]);
 
-  const report = useMemo(() => buildReport(selectedReport, { products, sales: filteredSales, purchases: filteredPurchases, accounts: filteredAccounts, returns, documents, customers, suppliers, staff }, profitSummary), [selectedReport, products, filteredSales, filteredPurchases, filteredAccounts, returns, documents, customers, suppliers, staff, profitSummary]);
+  const report = useMemo(() => buildReport(selectedReport, { products, sales: filteredSales, purchases: filteredPurchases, accounts: filteredAccounts, returns, documents, customers, suppliers, staff }, reportProfit), [selectedReport, products, filteredSales, filteredPurchases, filteredAccounts, returns, documents, customers, suppliers, staff, reportProfit]);
 
   const openAction = (next: string) => {
     if (next === "navigate_purchase_entry") { onOpenPurchase(); return; }
@@ -357,7 +379,7 @@ function buildReport(key: string, data: { products: Product[]; sales: Sale[]; pu
   const purchaseTotal = data.purchases.filter((row) => row.status !== "cancelled").reduce((sum, row) => sum + row.grand_total, 0);
   const returnTotal = data.returns.reduce((sum, row) => sum + row.total_amount, 0);
   let title = "Sales register"; let columns = ["Date", "Invoice", "Status", "Items", "Total", "GST"]; let rows: Array<Array<string | number>> = data.sales.map((row) => [formatDate(row.created_at), row.invoice_no, row.status, row.item_count, row.grand_total, row.tax_total]);
-  if (key === "price_list") { title = "Product price list"; columns = ["Product", "Tamil", "Barcode", "Category", "Unit", "MRP", "Sale price", "GST %"]; rows = data.products.map((row) => [row.name, row.tamil, row.barcode, row.category, row.unit, row.mrp, row.price, row.gst]); }
+  if (key === "price_list") { title = "Product price list"; columns = ["Product", "Tamil", "Barcode", "Category", "MRP", "Sale price", "GST %"]; rows = data.products.map((row) => [row.name, row.tamil, row.barcode || "—", row.category || "General", row.mrp, row.price, row.gst]); }
   else if (["purchase","purchase_register"].includes(key)) { title = "Purchase register"; columns = ["Date", "Purchase", "Supplier invoice", "Status", "Total", "Balance"]; rows = data.purchases.map((row) => [row.invoice_date, row.purchase_no, row.supplier_invoice_no || "—", row.status, row.grand_total, row.balance_due]); }
   else if (["accounts","refunds"].includes(key)) { title = key === "refunds" ? "Refund register" : "Accounts register"; columns = ["Date", "Document", "Type", "Party", "Method", "Amount", "Status"]; rows = data.accounts.filter((row) => key !== "refunds" || row.entry_type === "refund").map((row) => [row.entry_date, row.account_no, row.entry_type.replaceAll("_", " "), getRelationName(row.customers) || getRelationName(row.suppliers) || row.party_type, row.payment_method, row.amount, row.status]); }
   else if (key === "inventory") { title = "Inventory valuation"; columns = ["Product", "Barcode", "Category", "Stock", "Sale price", "Stock value", "Status"]; rows = data.products.map((row) => [row.name, row.barcode, row.category, row.stock, row.price, Number((row.stock * row.price).toFixed(2)), row.stock <= 0 ? "Out of stock" : row.stock <= 10 ? "Low" : "Healthy"]); }
