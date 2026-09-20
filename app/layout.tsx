@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PwaRegister } from "./pwa-register";
 
 export const metadata: Metadata = {
   title: "Nila Supermarket Billing",
@@ -21,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><PwaRegister />{children}</body>
     </html>
   );
 }
