@@ -377,7 +377,6 @@ function dateInRange(iso: string, from: string, to: string) { const date = new I
 function buildReport(key: string, data: { products: Product[]; sales: Sale[]; purchases: Purchase[]; accounts: AccountEntry[]; returns: ReturnRecord[]; documents: BusinessDocument[]; customers: Customer[]; suppliers: Supplier[]; staff: Staff[] }, profit: ProfitSummary) {
   const salesTotal = data.sales.filter((row) => row.status === "completed").reduce((sum, row) => sum + row.grand_total, 0);
   const purchaseTotal = data.purchases.filter((row) => row.status !== "cancelled").reduce((sum, row) => sum + row.grand_total, 0);
-  const returnTotal = data.returns.reduce((sum, row) => sum + row.total_amount, 0);
   let title = "Sales register"; let columns = ["Date", "Invoice", "Status", "Items", "Total", "GST"]; let rows: Array<Array<string | number>> = data.sales.map((row) => [formatDate(row.created_at), row.invoice_no, row.status, row.item_count, row.grand_total, row.tax_total]);
   if (key === "price_list") { title = "Product price list"; columns = ["Product", "Tamil", "Barcode", "Category", "MRP", "Sale price", "GST %"]; rows = data.products.map((row) => [row.name, row.tamil, row.barcode || "—", row.category || "General", row.mrp, row.price, row.gst]); }
   else if (["purchase","purchase_register"].includes(key)) { title = "Purchase register"; columns = ["Date", "Purchase", "Supplier invoice", "Status", "Total", "Balance"]; rows = data.purchases.map((row) => [row.invoice_date, row.purchase_no, row.supplier_invoice_no || "—", row.status, row.grand_total, row.balance_due]); }
