@@ -669,7 +669,7 @@ export default function Home() {
       {section === "customers" && <DirectoryView kind="customer" records={customers} live={cloudStatus === "live"} onAdd={() => openLiveAction("customer")} />}
       {section === "suppliers" && <DirectoryView kind="supplier" records={suppliers} live={cloudStatus === "live"} onAdd={() => openLiveAction("supplier")} />}
       {section === "staff" && <StaffView records={staff} live={cloudStatus === "live"} onInvite={() => openLiveAction("staff")} />}
-      {section === "settings" && <SettingsView language={language} setLanguage={setLanguage} profile={storeProfile} onSave={saveStoreProfile} />}
+      {section === "settings" && <SettingsView language={language} setLanguage={setLanguage} profile={storeProfile} onSave={saveStoreProfile} storeId={storeId} onNotify={notify} />}
     </section>
     <input ref={fileRef} className="visually-hidden" type="file" accept=".xlsx,.xls" onChange={importExcel} />
     {actionMode && <LiveActionModal mode={actionMode} products={products.map((product) => ({ id: product.id, name: product.name, price: product.price, gst: product.gst }))} suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name }))} busy={actionBusy} error={actionError} onClose={() => setActionMode(null)} onSubmit={handleActionSubmit} />}
@@ -792,7 +792,105 @@ function StaffView({ records, live, onInvite }: { records: StaffRecord[]; live: 
   return <div className="content-view"><ViewHeader eyebrow={`ACCESS CONTROL · ${live ? "LIVE" : "DEMO"}`} title="Staff & roles" description="Secure email invitations and database-enforced role permissions" actions={<><button className="outline-button"><ShieldCheck size={17} /> Manage roles</button><button className="primary-button" onClick={onInvite}><Plus size={17} /> Invite staff</button></>} /><div className="mini-stats"><article><Users size={20} /><span>Active staff<strong>{live ? team.filter((person) => person.active).length : "12 users"}</strong></span><Badge tone="green">{live ? "Store members" : "Demo"}</Badge></article><article><Gauge size={20} /><span>Super Admins<strong>{team.filter((person) => person.role === "super_admin").length}</strong></span><Badge tone="blue">Protected</Badge></article><article><WalletCards size={20} /><span>Cashiers<strong>{team.filter((person) => person.role === "cashier").length}</strong></span><Badge tone="neutral">Billing</Badge></article><article><ShieldCheck size={20} /><span>Security status<strong>RLS protected</strong></span><Badge tone="green">Active</Badge></article></div><div className="staff-grid">{team.map((person, index) => { const name = person.display_name || "Nila Staff"; return <article className="staff-card" key={person.user_id}><div className={`staff-avatar avatar-${index % 4 + 1}`}>{initials(name)}</div><div><strong>{name}</strong><span>{roleLabel(person.role)}</span></div><Badge tone={person.active ? "green" : "neutral"}>{person.active ? "Active" : "Disabled"}</Badge><div className="staff-permission"><ShieldCheck size={16} /><span>{permissionText[person.role] || "Assigned permissions"}</span></div><div className="staff-foot"><span>Added · {new Date(person.created_at).toLocaleDateString("en-IN")}</span><button className="icon-button"><MoreHorizontal size={17} /></button></div></article>; })}{live && !team.length && <div className="directory-empty"><Users size={26} /><strong>No staff members yet</strong><span>Invite the first cashier or inventory manager.</span></div>}</div><section className="panel permissions-panel"><div className="panel-head"><div><h2>Role permissions</h2><span>Enforced by Supabase Row Level Security</span></div><button>Configure <ChevronRight size={15} /></button></div><div className="permission-row permission-head"><span>Role</span><span>Billing</span><span>Purchases</span><span>Inventory</span><span>Reports</span><span>Settings</span></div>{[["Super Admin", 1, 1, 1, 1, 1], ["Admin", 1, 1, 1, 1, 1], ["Cashier", 1, 0, 0, 0, 0], ["Inventory Manager", 0, 1, 1, 0, 0], ["Accountant", 0, 1, 0, 1, 0]].map((row) => <div className="permission-row" key={String(row[0])}><strong>{row[0]}</strong>{row.slice(1).map((allowed, index) => <span key={index} className={allowed ? "allowed" : "denied"}>{allowed ? <Check size={14} /> : <Minus size={14} />}</span>)}</div>)}</section></div>;
 }
 
-function SettingsView({ language, setLanguage, profile, onSave }: { language: Language; setLanguage: (value: Language) => void; profile: StoreProfile; onSave: (data: FormData) => Promise<void> }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void onSave(new FormData(event.currentTarget)); };
-  return <div className="content-view settings-view"><ViewHeader eyebrow="STORE CONFIGURATION" title="Settings" description="Customize your Nila Supermarket workspace" /><div className="settings-layout"><aside>{[["Store profile", Store], ["Billing & tax", ReceiptIndianRupee], ["Invoice design", FileSpreadsheet], ["Payment methods", WalletCards], ["Language", Languages], ["Barcode & print", Barcode], ["Notifications", Bell], ["Data & backup", ShieldCheck]].map(([label, Icon], index) => { const ItemIcon = Icon as LucideIcon; return <button type="button" className={index === 0 ? "active" : ""} key={String(label)}><ItemIcon size={18} />{String(label)}<ChevronRight size={15} /></button>; })}</aside><form className="settings-card" key={`${profile.name}-${profile.invoice_prefix}`} onSubmit={submit}><div className="settings-head"><div><h2>Store profile</h2><p>Saved to Supabase and shown on invoices and reports.</p></div><button type="button" className="outline-button"><Printer size={16} /> Preview invoice</button></div><div className="profile-logo-row"><div className="large-brand-mark"><MoonStar size={28} /></div><div><strong>{profile.name} logo</strong><span>Brand identity for receipts and reports</span><button type="button">Change logo</button></div></div><div className="form-grid"><label><span>Business name</span><input name="name" defaultValue={profile.name} required /></label><label><span>GSTIN</span><input name="gstin" defaultValue={profile.gstin} /></label><label className="full"><span>Store address</span><input name="address" defaultValue={profile.address} placeholder="Street, city, Tamil Nadu, PIN" /></label><label><span>Phone</span><input name="phone" defaultValue={profile.phone} /></label><label><span>Email</span><input name="email" type="email" defaultValue={profile.email} /></label><label><span>Invoice prefix</span><input name="invoice_prefix" defaultValue={profile.invoice_prefix} maxLength={8} required /></label><label><span>Financial year</span><select defaultValue="2026"><option value="2026">2026–27</option></select></label></div><div className="language-setting"><div><span className="settings-icon"><Languages size={20} /></span><div><strong>Default interface language</strong><small>Staff can switch language anytime.</small></div></div><div className="segmented"><button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>English</button><button type="button" className={language === "ta" ? "active" : ""} onClick={() => setLanguage("ta")}>தமிழ்</button></div></div><div className="settings-save"><span><ShieldCheck size={16} /> Store changes are protected by role policies</span><button type="submit" className="primary-button"><Check size={17} /> Save changes</button></div></form></div></div>;
+function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotify }: { language: Language; setLanguage: (value: Language) => void; profile: StoreProfile; onSave: (data: FormData) => Promise<void>; storeId: string | null; onNotify: (message: string) => void }) {
+  type SettingsTab = "profile" | "billing" | "invoice" | "payments" | "language" | "print" | "notifications" | "backup";
+  const [tab, setTab] = useState<SettingsTab>("profile");
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [taxInclusive, setTaxInclusive] = useState(true);
+  const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [expiryAlertDays, setExpiryAlertDays] = useState(30);
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(true);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(1);
+  const [footerEn, setFooterEn] = useState("Thank you. Visit again!");
+  const [footerTa, setFooterTa] = useState("நன்றி. மீண்டும் வருக!");
+  const [template, setTemplate] = useState<Record<string, unknown>>({ cash: true, upi: true, card: true, paper_width: "80mm", auto_print: false, show_gstin: true, show_phone: true });
+
+  useEffect(() => {
+    if (!storeId) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    void (async () => {
+      const { data, error } = await supabase.from("store_settings").select("language,tax_inclusive,low_stock_alerts,expiry_alert_days,loyalty_enabled,loyalty_points_per_100,receipt_footer_en,receipt_footer_ta,invoice_template").eq("store_id", storeId).single();
+      if (error || !data) return;
+      setTaxInclusive(Boolean(data.tax_inclusive));
+      setLowStockAlerts(Boolean(data.low_stock_alerts));
+      setExpiryAlertDays(Number(data.expiry_alert_days || 30));
+      setLoyaltyEnabled(Boolean(data.loyalty_enabled));
+      setLoyaltyPoints(Number(data.loyalty_points_per_100 || 1));
+      setFooterEn(String(data.receipt_footer_en || ""));
+      setFooterTa(String(data.receipt_footer_ta || ""));
+      const savedTemplate = (data.invoice_template || {}) as Record<string, unknown>;
+      setTemplate((current) => ({ ...current, ...savedTemplate }));
+      setLoaded(true);
+    })();
+  }, [storeId]);
+
+  const submitProfile = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void onSave(new FormData(event.currentTarget)); };
+
+  const savePreferences = async () => {
+    if (!storeId) { onNotify("Sign in to save settings"); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("store_settings").upsert({
+        store_id: storeId,
+        language,
+        tax_inclusive: taxInclusive,
+        low_stock_alerts: lowStockAlerts,
+        expiry_alert_days: Math.max(1, Math.round(expiryAlertDays || 30)),
+        loyalty_enabled: loyaltyEnabled,
+        loyalty_points_per_100: Math.max(0, loyaltyPoints || 0),
+        receipt_footer_en: footerEn || null,
+        receipt_footer_ta: footerTa || null,
+        invoice_template: template,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "store_id" });
+      if (error) throw error;
+      onNotify("Settings saved");
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Settings could not be saved");
+    } finally { setBusy(false); }
+  };
+
+  const setTemplateValue = (key: string, value: unknown) => setTemplate((current) => ({ ...current, [key]: value }));
+  const menu: Array<[SettingsTab,string,LucideIcon]> = [
+    ["profile","Store profile",Store], ["billing","Billing & tax",ReceiptIndianRupee], ["invoice","Invoice design",FileSpreadsheet],
+    ["payments","Payment methods",WalletCards], ["language","Language",Languages], ["print","Barcode & print",Barcode],
+    ["notifications","Notifications",Bell], ["backup","Data & backup",ShieldCheck],
+  ];
+
+  const backupSettings = () => {
+    const payload = { exported_at: new Date().toISOString(), store: profile, settings: { language, taxInclusive, lowStockAlerts, expiryAlertDays, loyaltyEnabled, loyaltyPoints, footerEn, footerTa, invoiceTemplate: template } };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = "nila-store-settings-backup.json"; anchor.click(); URL.revokeObjectURL(url);
+    onNotify("Settings backup downloaded");
+  };
+
+  const switchRow = (title: string, description: string, checked: boolean, onChange: (checked: boolean) => void) => <label className="settings-switch-row"><span><strong>{title}</strong><small>{description}</small></span><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /></label>;
+
+  return <div className="content-view settings-view"><ViewHeader eyebrow="STORE CONFIGURATION" title="Settings" description="Customize your Nila Supermarket workspace" /><div className="settings-layout"><aside>{menu.map(([key,label,Icon]) => <button type="button" className={tab === key ? "active" : ""} key={key} onClick={() => setTab(key)}><Icon size={18} />{label}<ChevronRight size={15} /></button>)}</aside>
+
+    {tab === "profile" && <form className="settings-card" key={`${profile.name}-${profile.invoice_prefix}`} onSubmit={submitProfile}><div className="settings-head"><div><h2>Store profile</h2><p>Saved to Supabase and shown on invoices and reports.</p></div><button type="button" className="outline-button" onClick={() => window.print()}><Printer size={16} /> Preview invoice</button></div><div className="profile-logo-row"><div className="large-brand-mark"><MoonStar size={28} /></div><div><strong>{profile.name} logo</strong><span>Brand identity for receipts and reports</span></div></div><div className="form-grid"><label><span>Business name</span><input name="name" defaultValue={profile.name} required /></label><label><span>GSTIN</span><input name="gstin" defaultValue={profile.gstin} /></label><label className="full"><span>Store address</span><input name="address" defaultValue={profile.address} placeholder="Street, city, Tamil Nadu, PIN" /></label><label><span>Phone</span><input name="phone" defaultValue={profile.phone} /></label><label><span>Email</span><input name="email" type="email" defaultValue={profile.email} /></label><label><span>Invoice prefix</span><input name="invoice_prefix" defaultValue={profile.invoice_prefix} maxLength={8} required /></label><label><span>Financial year</span><select defaultValue="2026"><option value="2026">2026–27</option></select></label></div><div className="settings-save"><span><ShieldCheck size={16} /> Store changes are protected by role policies</span><button type="submit" className="primary-button"><Check size={17} /> Save changes</button></div></form>}
+
+    {tab === "billing" && <section className="settings-card"><div className="settings-head"><div><h2>Billing & tax</h2><p>Control tax display and customer loyalty defaults.</p></div></div><div className="settings-options">{switchRow("Tax inclusive pricing","Selling prices already include GST.",taxInclusive,setTaxInclusive)}{switchRow("Customer loyalty","Enable loyalty points for customers.",loyaltyEnabled,setLoyaltyEnabled)}<label className="settings-input-row"><span><strong>Loyalty points per ₹100</strong><small>Points credited for every ₹100 billed.</small></span><input type="number" min="0" step="0.1" value={loyaltyPoints} onChange={(e) => setLoyaltyPoints(Number(e.target.value))} /></label></div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "invoice" && <section className="settings-card"><div className="settings-head"><div><h2>Invoice design</h2><p>Receipt footer and store details shown on printed bills.</p></div><button type="button" className="outline-button" onClick={() => window.print()}><Printer size={16} /> Preview</button></div><div className="form-grid"><label className="full"><span>Receipt footer — English</span><input value={footerEn} onChange={(e) => setFooterEn(e.target.value)} /></label><label className="full"><span>Receipt footer — Tamil</span><input value={footerTa} onChange={(e) => setFooterTa(e.target.value)} /></label></div><div className="settings-options">{switchRow("Show GSTIN","Print store GSTIN when available.",template.show_gstin !== false,(v) => setTemplateValue("show_gstin",v))}{switchRow("Show phone number","Print store phone number on receipt.",template.show_phone !== false,(v) => setTemplateValue("show_phone",v))}</div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "payments" && <section className="settings-card"><div className="settings-head"><div><h2>Payment methods</h2><p>Choose which payment modes are available at checkout.</p></div></div><div className="settings-options">{switchRow("Cash","Accept cash payments.",template.cash !== false,(v) => setTemplateValue("cash",v))}{switchRow("UPI","Accept UPI payments.",template.upi !== false,(v) => setTemplateValue("upi",v))}{switchRow("Card","Accept debit / credit card payments.",template.card !== false,(v) => setTemplateValue("card",v))}</div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "language" && <section className="settings-card"><div className="settings-head"><div><h2>Language</h2><p>Set the default interface language for this store.</p></div></div><div className="language-setting"><div><span className="settings-icon"><Languages size={20} /></span><div><strong>Default interface language</strong><small>You can still switch language from the top bar.</small></div></div><div className="segmented"><button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>English</button><button type="button" className={language === "ta" ? "active" : ""} onClick={() => setLanguage("ta")}>தமிழ்</button></div></div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "print" && <section className="settings-card"><div className="settings-head"><div><h2>Barcode & print</h2><p>Configure receipt printer defaults.</p></div></div><div className="form-grid"><label><span>Receipt paper width</span><select value={String(template.paper_width || "80mm")} onChange={(e) => setTemplateValue("paper_width",e.target.value)}><option value="58mm">58 mm</option><option value="80mm">80 mm</option></select></label></div><div className="settings-options">{switchRow("Auto print after payment","Open the print dialog after a successful sale.",template.auto_print === true,(v) => setTemplateValue("auto_print",v))}</div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "notifications" && <section className="settings-card"><div className="settings-head"><div><h2>Notifications</h2><p>Choose operational alerts for stock and expiry.</p></div></div><div className="settings-options">{switchRow("Low stock alerts","Show warnings when products need reorder.",lowStockAlerts,setLowStockAlerts)}<label className="settings-input-row"><span><strong>Expiry alert days</strong><small>Warn this many days before expiry.</small></span><input type="number" min="1" step="1" value={expiryAlertDays} onChange={(e) => setExpiryAlertDays(Number(e.target.value))} /></label></div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
+
+    {tab === "backup" && <section className="settings-card"><div className="settings-head"><div><h2>Data & backup</h2><p>Export a local copy of store configuration.</p></div></div><div className="settings-backup-card"><ShieldCheck size={28} /><div><strong>Store settings backup</strong><span>Downloads your profile and configuration as a JSON file.</span></div><button type="button" className="primary-button" onClick={backupSettings}><Download size={17} /> Download backup</button></div><p className="settings-note">{loaded ? "Settings loaded from Supabase." : "Using current settings until cloud data loads."}</p></section>}
+  </div></div>;
 }
+
+function SettingsSave({ busy, onSave }: { busy: boolean; onSave: () => Promise<void> }) {
+  return <div className="settings-save"><span><ShieldCheck size={16} /> Saved securely to Supabase</span><button type="button" className="primary-button" onClick={() => void onSave()} disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : <Check size={17} />}{busy ? "Saving…" : "Save settings"}</button></div>;
+}
+
