@@ -18,7 +18,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 export type ActionMode = "product" | "customer" | "supplier" | "purchase" | "staff";
 
@@ -51,6 +51,8 @@ export function LiveActionModal({
   onSubmit: (mode: ActionMode, data: FormData) => Promise<void>;
 }) {
   const copy = titles[mode];
+  const [productName, setProductName] = useState("");
+  const [tamilName, setTamilName] = useState("");
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void onSubmit(mode, new FormData(event.currentTarget));
@@ -62,10 +64,10 @@ export function LiveActionModal({
       <header className="action-modal-head"><div><span className="eyebrow"><ShieldCheck size={13} /> {copy.eyebrow}</span><h2>{copy.title}</h2><p>{copy.description}</p></div><button className="icon-button" type="button" onClick={onClose} disabled={busy}><X size={19} /></button></header>
       <form className="action-form" onSubmit={submit}>
         {mode === "product" && <>
-          <div className="action-form-row"><Field name="name" label="Product name" icon={Package} placeholder="Aavin Milk" required /><Field name="tamil" label="Tamil name" icon={Package} placeholder="ஆவின் பால்" /></div>
+          <div className="action-form-row"><label><span>Product name</span><div><Package size={17} /><input name="name" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Aavin Milk" required /></div></label><label><span>Tamil name (optional)</span><div><Package size={17} /><input name="tamil" value={tamilName} onChange={(e) => setTamilName(e.target.value)} placeholder="ஆவின் பால் — type Tamil if needed" /></div></label></div>
           <div className="action-form-row"><Field name="barcode" label="Barcode" icon={Barcode} placeholder="8901234567890" required /><Field name="category" label="Category" icon={Boxes} placeholder="Dairy" required /></div>
-          <div className="action-form-row three"><Field name="unit" label="Unit / size" icon={Store} placeholder="500 ml" required /><Field name="price" label="Sale price" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="mrp" label="MRP" icon={IndianRupee} type="number" min="0" step="0.01" required /></div>
-          <div className="action-form-row"><Field name="stock" label="Opening stock" icon={Boxes} type="number" step="0.001" defaultValue="0" required /><Field name="gst" label="GST %" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" defaultValue="0" required /></div>
+          <div className="action-form-row three"><Field name="unit" label="Unit / size (optional)" icon={Store} placeholder="Optional: 500 ml" /><Field name="price" label="Sale price" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="mrp" label="MRP" icon={IndianRupee} type="number" min="0" step="0.01" required /></div>
+          <div className="action-form-row"><Field name="stock" label="Opening stock" icon={Boxes} type="number" step="0.001" defaultValue="0" required /><Field name="gst" label="GST % (optional)" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" placeholder="Optional — defaults to 0" /></div>
         </>}
         {(mode === "customer" || mode === "supplier") && <>
           <Field name="name" label={mode === "customer" ? "Customer name" : "Supplier name"} icon={mode === "customer" ? UserRound : Truck} placeholder={mode === "customer" ? "R. Kavitha" : "Sri Lakshmi Distributors"} required />
