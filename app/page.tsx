@@ -3,7 +3,7 @@
 import {
   ArrowDownRight, ArrowUpRight, BadgeIndianRupee, Banknote, Barcode, Bell,
   Boxes, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, ChevronRight,
-  ClipboardList, CreditCard, Download, FileSpreadsheet, Filter, Gauge, Gift,
+  ClipboardList, CreditCard, Download, FileSpreadsheet, Filter, Gauge,
   Grid2X2, HandCoins, IndianRupee, Landmark, Languages, LayoutDashboard,
   ListFilter, Menu, Minus, MoonStar, MoreHorizontal, Package, PackageCheck,
   PanelLeftClose, PanelLeftOpen, Plus, Printer, ReceiptIndianRupee, RefreshCcw,
@@ -115,7 +115,6 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([{ ...productsSeed[0], quantity: 2 }, { ...productsSeed[3], quantity: 1 }, { ...productsSeed[8], quantity: 1 }]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All items");
-  const [barcodeValue, setBarcodeValue] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [mobileBillOpen, setMobileBillOpen] = useState(false);
   const [catalogView, setCatalogView] = useState<"grid" | "list">("grid");
@@ -317,7 +316,6 @@ export default function Home() {
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2500); };
   const addToCart = (product: Product) => { setCart((current) => { const found = current.find((item) => item.id === product.id); return found ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { ...product, quantity: 1 }]; }); notify(`${product.name} added`); };
   const updateQuantity = (id: string, delta: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
-  const scanBarcode = () => { const product = products.find((item) => item.barcode === barcodeValue.trim()); if (product) { addToCart(product); setBarcodeValue(""); } else notify("Barcode not found — check or add the product"); };
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const supabase = getSupabaseBrowserClient();
