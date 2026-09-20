@@ -143,6 +143,9 @@ export default function Home() {
   const [userRole, setUserRole] = useState("admin");
   const [saleBusy, setSaleBusy] = useState(false);
   const [saleError, setSaleError] = useState("");
+  const [billingCustomerName, setBillingCustomerName] = useState("");
+  const [billingCustomerPhone, setBillingCustomerPhone] = useState("");
+  const [lastReceipt, setLastReceipt] = useState<{ invoice: string; total: number; items: CartItem[]; customerName: string; customerPhone: string } | null>(null);
   const [invoiceLabel, setInvoiceLabel] = useState("NS-NEW");
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
@@ -366,9 +369,11 @@ export default function Home() {
       if (error) throw new Error(error.message || error.details || error.hint || "Sale transaction failed");
       const result = data as { invoice_no?: string } | null;
       const completedInvoice = result?.invoice_no || "NS-SAVED";
+      const receiptItems = [...cart];
+      setLastReceipt({ invoice: completedInvoice, total: roundedTotal, items: receiptItems, customerName: billingCustomerName.trim(), customerPhone: billingCustomerPhone.trim() });
       setPaymentOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
       await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
-      notify(`Sale ${completedInvoice} saved successfully`);
+      notify(`Sale ${completedInvoice} saved successfully — Print receipt is ready`);
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : "Sale could not be completed";
       setSaleError(message);
@@ -514,12 +519,12 @@ export default function Home() {
         {mobileBillOpen && <button className="mobile-cart-backdrop" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)} />}
         <aside className={`cart-panel ${mobileBillOpen ? "mobile-open" : ""}`}>
           <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div><div className="cart-head-actions"><button className="icon-button"><MoreHorizontal size={19} /></button><button className="icon-button mobile-cart-close" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)}><X size={19} /></button></div></div>
-          <button className="customer-select"><span className="customer-icon"><UserRound size={18} /></span><span><small>Customer</small><strong>{t.customer}</strong></span><Plus size={17} /></button>
+          <div className="billing-customer"><label><span>Customer name <small>(optional)</small></span><input value={billingCustomerName} onChange={(e) => setBillingCustomerName(e.target.value)} placeholder="Walk-in customer" /></label><label><span>Phone number <small>(optional)</small></span><input inputMode="tel" value={billingCustomerPhone} onChange={(e) => setBillingCustomerPhone(e.target.value.replace(/[^0-9+ -]/g, ""))} placeholder="+91" /></label></div>
           <div className="cart-items">{cart.length ? cart.map((item) => <article className="cart-item" key={item.id}><span className={`cart-product-icon tint-${item.tint}`}>{item.icon}</span><div className="cart-product-copy"><strong>{language === "ta" && item.tamil ? item.tamil : item.name}</strong><span>{currency(item.price)} × {item.quantity}</span><div className="qty-control"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={13} /></button><strong>{item.quantity}</strong><button onClick={() => updateQuantity(item.id, 1)}><Plus size={13} /></button></div></div><div className="cart-line-price"><strong>{currency(item.price * item.quantity)}</strong><button onClick={() => setCart((current) => current.filter((row) => row.id !== item.id))}><Trash2 size={15} /></button></div></article>) : <div className="empty-cart"><ShoppingBasket size={36} /><strong>Your bill is empty</strong><span>Scan or select a product to begin.</span></div>}</div>
           <button className="offer-row"><span><Gift size={17} /> Add discount or coupon</span><ChevronRight size={17} /></button>
           <div className="totals"><div><span>{t.subtotal}</span><strong>{currency(subtotal)}</strong></div><div className="savings"><span>{t.savings}</span><strong>− {currency(savings)}</strong></div><div><span>{t.tax}</span><strong>{currency(tax)}</strong></div><div className="grand-total"><span>{t.total}<small>Rounded off {currency(roundedTotal - subtotal)}</small></span><strong>{currency(roundedTotal)}</strong></div></div>
           <div className="cart-actions"><button className="secondary-action" onClick={() => notify("Bill held as #H-012")}><RotateCcw size={17} />{t.hold}</button><button className="secondary-action danger" onClick={() => setCart([])}><Trash2 size={17} />{t.clear}</button></div>
-          <button className="checkout-button" onClick={() => cart.length && setPaymentOpen(true)} disabled={!cart.length}><span><CreditCard size={19} />{t.checkout}</span><strong>{currency(roundedTotal)} <ChevronRight size={18} /></strong></button><p className="shortcut-hint"><kbd>F4</kbd> Open payment · <kbd>F6</kbd> Print last bill</p>
+          <button className="checkout-button" onClick={() => cart.length && setPaymentOpen(true)} disabled={!cart.length}><span><CreditCard size={19} />{t.checkout}</span><strong>{currency(roundedTotal)} <ChevronRight size={18} /></strong></button>{lastReceipt && <button className="secondary-action print-last" onClick={() => window.print()}><Printer size={17} /> Print last receipt · {lastReceipt.invoice}</button>}<p className="shortcut-hint"><kbd>F4</kbd> Open payment · <kbd>F6</kbd> Print last bill</p>
         </aside>
       </div>}
       {section === "dashboard" && <Dashboard language={language} products={products} sales={sales} live={cloudStatus === "live"} onStartSale={() => setSection("billing")} />}
