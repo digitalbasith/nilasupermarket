@@ -445,9 +445,9 @@ export default function Home() {
   const importExcel = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
     try {
-      const { default: readXlsxFile } = await import("read-excel-file/browser"); const rows = await readXlsxFile(file); if (rows.length < 2) throw new Error("No rows");
+      const { readSheet } = await import("read-excel-file/browser"); const rows = await readSheet(file); if (rows.length < 2) throw new Error("No rows");
       const headers = rows[0].map((item) => String(item ?? "").trim().toLowerCase());
-      const at = (row: (string | number | boolean | Date | null)[], names: string[]) => { const index = headers.findIndex((header) => names.includes(header)); return index >= 0 ? row[index] : null; };
+      const at = (row: readonly unknown[], names: string[]) => { const index = headers.findIndex((header) => names.includes(header)); return index >= 0 ? row[index] : null; };
       const imported = rows.slice(1).filter((row) => row.some(Boolean)).map((row, index): Product => ({ id: `import-${Date.now()}-${index}`, name: String(at(row, ["product", "product name", "name"]) || `Imported product ${index + 1}`), tamil: String(at(row, ["tamil", "tamil name"]) || ""), barcode: String(at(row, ["barcode", "ean"]) || `IMP${Date.now()}${index}`), category: String(at(row, ["category"]) || "Imported"), unit: String(at(row, ["unit", "size"]) || "1 unit"), mrp: Number(at(row, ["mrp"]) || 0), price: Number(at(row, ["sale price", "price", "selling price"]) || 0), stock: Number(at(row, ["stock", "quantity", "qty"]) || 0), gst: Number(at(row, ["gst", "tax"]) || 0), icon: "📦", tint: "blue" }));
       if (cloudStatus === "live" && storeId) {
         const supabase = getSupabaseBrowserClient();
