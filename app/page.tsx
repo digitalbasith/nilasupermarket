@@ -116,6 +116,7 @@ export default function Home() {
   const [category, setCategory] = useState("All items");
   const [barcodeValue, setBarcodeValue] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [mobileBillOpen, setMobileBillOpen] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"Cash" | "UPI" | "Card">("Cash");
   const [cashReceived, setCashReceived] = useState("");
   const [toast, setToast] = useState("");
@@ -124,7 +125,8 @@ export default function Home() {
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>("checking");
   const [cloudError, setCloudError] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("signup");
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
+  const [ownerSignupAvailable, setOwnerSignupAvailable] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
@@ -237,6 +239,16 @@ export default function Home() {
   }, []);
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    supabase.rpc("nila_bootstrap_status").then(({ data, error }) => {
+      if (error) { setOwnerSignupAvailable(false); return; }
+      const available = data === true;
+      setOwnerSignupAvailable(available);
+      setAuthMode(available ? "signup" : "signin");
+    });
+  }, []);
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
     if (!supabase) { window.setTimeout(() => setCloudStatus("demo"), 0); return; }
     let mounted = true;
     supabase.auth.getSession().then(async ({ data, error }) => {
@@ -319,6 +331,8 @@ export default function Home() {
       if (error) throw error;
       await syncCatalogToCloud(supabase, String(newStoreId), productsSeed);
       await loadCloudWorkspace(userResult.user.id, userResult.user.email || "");
+      setOwnerSignupAvailable(false);
+      setAuthMode("signin");
       notify("Nila Supermarket cloud workspace is ready");
     } catch (setupError) {
       setCloudError(setupError instanceof Error ? setupError.message : "Store setup failed");
@@ -492,9 +506,11 @@ export default function Home() {
           <div className="category-row">{categories.map((item) => <button key={item} onClick={() => setCategory(item)} className={category === item ? "active" : ""}>{item === "All items" && <Grid2X2 size={15} />}{item === "All items" ? t.all : item}</button>)}</div>
           <div className="catalog-heading"><div><h2>{t.catalog}</h2><span>{filteredProducts.length} items available</span></div><div className="catalog-tools"><label><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter products" /></label><button className="icon-button"><ListFilter size={18} /></button></div></div>
           <div className="product-grid">{filteredProducts.map((product) => <button className="product-card" key={product.id} onClick={() => addToCart(product)}><span className={`product-visual tint-${product.tint}`}><span>{product.icon}</span>{product.stock <= 12 && <em>Low</em>}</span><span className="product-info"><strong>{language === "ta" && product.tamil ? product.tamil : product.name}</strong><small>{product.unit} · Stock {product.stock}</small></span><span className="product-price"><strong>{currency(product.price)}</strong>{product.mrp > product.price && <small>{currency(product.mrp)}</small>}</span><span className="add-dot"><Plus size={17} /></span></button>)}</div>
+          <button className="mobile-bill-trigger" onClick={() => setMobileBillOpen(true)}><span><ShoppingBasket size={18} /> Current bill <b>{cart.reduce((sum, item) => sum + item.quantity, 0)}</b></span><strong>{currency(roundedTotal)} <ChevronRight size={18} /></strong></button>
         </section>
-        <aside className="cart-panel">
-          <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div><button className="icon-button"><MoreHorizontal size={19} /></button></div>
+        {mobileBillOpen && <button className="mobile-cart-backdrop" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)} />}
+        <aside className={`cart-panel ${mobileBillOpen ? "mobile-open" : ""}`}>
+          <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div><div className="cart-head-actions"><button className="icon-button"><MoreHorizontal size={19} /></button><button className="icon-button mobile-cart-close" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)}><X size={19} /></button></div></div>
           <button className="customer-select"><span className="customer-icon"><UserRound size={18} /></span><span><small>Customer</small><strong>{t.customer}</strong></span><Plus size={17} /></button>
           <div className="cart-items">{cart.length ? cart.map((item) => <article className="cart-item" key={item.id}><span className={`cart-product-icon tint-${item.tint}`}>{item.icon}</span><div className="cart-product-copy"><strong>{language === "ta" && item.tamil ? item.tamil : item.name}</strong><span>{currency(item.price)} × {item.quantity}</span><div className="qty-control"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={13} /></button><strong>{item.quantity}</strong><button onClick={() => updateQuantity(item.id, 1)}><Plus size={13} /></button></div></div><div className="cart-line-price"><strong>{currency(item.price * item.quantity)}</strong><button onClick={() => setCart((current) => current.filter((row) => row.id !== item.id))}><Trash2 size={15} /></button></div></article>) : <div className="empty-cart"><ShoppingBasket size={36} /><strong>Your bill is empty</strong><span>Scan or select a product to begin.</span></div>}</div>
           <button className="offer-row"><span><Gift size={17} /> Add discount or coupon</span><ChevronRight size={17} /></button>
@@ -535,7 +551,7 @@ export default function Home() {
       <div className="auth-brand"><Logo /><button className="icon-button" onClick={() => setAuthOpen(false)} aria-label="Close"><X size={19} /></button></div>
       {cloudStatus === "live" ? <div className="account-panel"><span className="account-avatar">{profileInitials}</span><span className="eyebrow"><Cloud size={13} /> CLOUD ACCOUNT</span><h2>{userName}</h2><p>{userEmail}</p><div className="account-meta"><span><Store size={16} />{storeName}</span><span><ShieldCheck size={16} />{roleLabel(userRole)}</span><span><Database size={16} />Supabase connected</span></div><button className="signout-button" onClick={signOut}><LogOut size={17} /> Sign out from this device</button></div> : <>
         <div className="auth-intro"><span className="auth-icon"><LockKeyhole size={22} /></span><span className="eyebrow">SECURE SUPERMARKET CLOUD</span><h2>{authMode === "signup" ? "Create the owner account" : "Welcome back"}</h2><p>{authMode === "signup" ? "Use your new email ID. Your first account becomes Super Admin for Nila Supermarket." : "Sign in to continue billing, products, stock and reports."}</p></div>
-        <div className="auth-tabs"><button className={authMode === "signup" ? "active" : ""} onClick={() => { setAuthMode("signup"); setCloudError(""); setAuthMessage(""); }}>Create account</button><button className={authMode === "signin" ? "active" : ""} onClick={() => { setAuthMode("signin"); setCloudError(""); setAuthMessage(""); }}>Sign in</button></div>
+        <div className={`auth-tabs ${ownerSignupAvailable ? "" : "signin-only"}`}>{ownerSignupAvailable && <button className={authMode === "signup" ? "active" : ""} onClick={() => { setAuthMode("signup"); setCloudError(""); setAuthMessage(""); }}>Create owner</button>}<button className={authMode === "signin" ? "active" : ""} onClick={() => { setAuthMode("signin"); setCloudError(""); setAuthMessage(""); }}>Sign in</button></div>
         <form className="auth-form" onSubmit={submitAuth}>{authMode === "signup" && <label><span>Owner name</span><div><UserRound size={17} /><input value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder="Your name" autoComplete="name" required /></div></label>}<label><span>Email ID</span><div><Mail size={17} /><input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="owner@nilasupermarket.in" autoComplete="email" required /></div></label><label><span>Password</span><div><LockKeyhole size={17} /><input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Minimum 6 characters" autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} required /></div></label>{cloudError && <p className="auth-alert error">{cloudError}</p>}{authMessage && <p className="auth-alert success">{authMessage}</p>}<button className="auth-submit" disabled={authBusy}>{authBusy ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}{authBusy ? "Please wait…" : authMode === "signup" ? "Create owner account" : "Sign in securely"}</button></form>
         <button className="demo-link" onClick={() => setAuthOpen(false)}>Explore the interface in demo mode</button><p className="auth-security"><ShieldCheck size={14} /> Passwords are handled by Supabase Auth. The app never stores them.</p>
       </>}
