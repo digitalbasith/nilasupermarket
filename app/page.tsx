@@ -117,7 +117,6 @@ export default function Home() {
   const [billQuery, setBillQuery] = useState("");
   const [category, setCategory] = useState("All items");
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [mobileBillOpen, setMobileBillOpen] = useState(false);
   const [catalogView, setCatalogView] = useState<"grid" | "list">("grid");
   const [paymentMode, setPaymentMode] = useState<"Cash" | "UPI" | "Card">("Cash");
   const [cashReceived, setCashReceived] = useState("");
@@ -414,7 +413,7 @@ export default function Home() {
       const receiptItems = [...cart];
       setLastReceipt({ invoice: completedInvoice, total: roundedTotal, items: receiptItems, customerName: billingCustomerName.trim(), customerPhone: billingCustomerPhone.trim() });
       if (result?.sale_id) setUndoSale({ id: result.sale_id, invoice: completedInvoice, seconds: 30 });
-      setPaymentOpen(false); setMobileBillOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
+      setPaymentOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
       setBillingCustomerName(""); setBillingCustomerPhone("");
       await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
       notify(`Sale ${completedInvoice} saved — Undo available for 30 seconds`);
@@ -632,11 +631,9 @@ export default function Home() {
           <div className="category-row">{categories.map((item) => <button key={item} onClick={() => setCategory(item)} className={category === item ? "active" : ""}>{item === "All items" && <Grid2X2 size={15} />}{item === "All items" ? t.all : item}</button>)}</div>
           <div className="catalog-heading"><div><h2>{t.catalog}</h2><span>{filteredProducts.length} items available</span></div><div className="catalog-tools view-toggle"><button className={catalogView === "grid" ? "icon-button active" : "icon-button"} onClick={() => setCatalogView("grid")} aria-label="Grid view"><Grid2X2 size={18} /></button><button className={catalogView === "list" ? "icon-button active" : "icon-button"} onClick={() => setCatalogView("list")} aria-label="List view"><ListFilter size={18} /></button></div></div>
           <div className={`product-grid ${catalogView === "list" ? "list-view" : ""}`}>{filteredProducts.map((product) => <button className="product-card no-visual" key={product.id} onClick={() => addToCart(product)}><span className="product-info"><strong>{language === "ta" && product.tamil ? product.tamil : product.name}</strong><small>Stock {Math.round(product.stock)}{product.category && product.category !== "General" ? ` · ${product.category}` : ""}</small></span><span className="product-price"><strong>{currency(product.price)}</strong>{product.mrp > product.price && <small>{currency(product.mrp)}</small>}</span><span className="add-dot"><Plus size={17} /></span></button>)}</div>
-          <button className="mobile-bill-trigger" onClick={() => setMobileBillOpen(true)}><span><ShoppingBasket size={18} /> Current bill <b>{cart.reduce((sum, item) => sum + item.quantity, 0)}</b></span><strong>{currency(roundedTotal)} <ChevronRight size={18} /></strong></button>
         </section>
-        {mobileBillOpen && <button className="mobile-cart-backdrop" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)} />}
-        <aside className={`cart-panel ${mobileBillOpen ? "mobile-open" : ""}`}>
-          <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div><div className="cart-head-actions"><button className="icon-button mobile-cart-close" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)}><X size={19} /></button></div></div>
+        <aside className="cart-panel">
+          <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div></div>
           <div className="bill-product-search">
             <div className="bill-search-input"><Search size={18} /><input value={billQuery} onChange={(e) => setBillQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleBillSearchEnter()} placeholder="Search product or barcode to add..." autoComplete="off" />{billQuery && <button type="button" onClick={() => setBillQuery("")} aria-label="Clear product search"><X size={15} /></button>}</div>
             {billQuery && <div className="bill-search-results">{billSearchProducts.length ? billSearchProducts.map((product) => <button type="button" key={product.id} className="bill-search-result" onClick={() => addFromBillSearch(product)}><span><strong>{language === "ta" && product.tamil ? product.tamil : product.name}</strong><small>Stock {Math.round(product.stock)}{product.barcode ? ` · ${product.barcode}` : ""}</small></span><span><strong>{currency(product.price)}</strong><Plus size={17} /></span></button>) : <div className="bill-search-empty">No matching product</div>}</div>}
