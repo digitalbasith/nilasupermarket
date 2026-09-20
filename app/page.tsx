@@ -114,6 +114,7 @@ export default function Home() {
   const [products, setProducts] = useState(productsSeed);
   const [cart, setCart] = useState<CartItem[]>([{ ...productsSeed[0], quantity: 2 }, { ...productsSeed[3], quantity: 1 }, { ...productsSeed[8], quantity: 1 }]);
   const [query, setQuery] = useState("");
+  const [billQuery, setBillQuery] = useState("");
   const [category, setCategory] = useState("All items");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [mobileBillOpen, setMobileBillOpen] = useState(false);
@@ -306,6 +307,11 @@ export default function Home() {
 
   const categories = useMemo(() => ["All items", ...Array.from(new Set(products.map((p) => p.category)))], [products]);
   const filteredProducts = useMemo(() => { const term = query.trim().toLowerCase(); return products.filter((p) => (category === "All items" || p.category === category) && (!term || `${p.name} ${p.tamil} ${p.barcode}`.toLowerCase().includes(term))); }, [products, query, category]);
+  const billSearchProducts = useMemo(() => {
+    const term = billQuery.trim().toLowerCase();
+    if (!term) return [];
+    return products.filter((p) => `${p.name} ${p.tamil} ${p.barcode} ${p.category}`.toLowerCase().includes(term)).slice(0, 8);
+  }, [products, billQuery]);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const mrpTotal = cart.reduce((sum, item) => sum + item.mrp * item.quantity, 0);
   const savings = mrpTotal - subtotal;
@@ -315,6 +321,17 @@ export default function Home() {
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2500); };
   const addToCart = (product: Product) => { setCart((current) => { const found = current.find((item) => item.id === product.id); return found ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { ...product, quantity: 1 }]; }); notify(`${product.name} added`); };
+  const addFromBillSearch = (product: Product) => {
+    addToCart(product);
+    setBillQuery("");
+  };
+  const handleBillSearchEnter = () => {
+    const term = billQuery.trim();
+    if (!term) return;
+    const exactBarcode = products.find((item) => item.barcode && item.barcode === term);
+    if (exactBarcode) { addFromBillSearch(exactBarcode); return; }
+    if (billSearchProducts.length === 1) addFromBillSearch(billSearchProducts[0]);
+  };
   const updateQuantity = (id: string, delta: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -620,6 +637,10 @@ export default function Home() {
         {mobileBillOpen && <button className="mobile-cart-backdrop" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)} />}
         <aside className={`cart-panel ${mobileBillOpen ? "mobile-open" : ""}`}>
           <div className="cart-head"><div><h2>{t.cart}</h2><span>{cart.reduce((sum, item) => sum + item.quantity, 0)} items · #{invoiceLabel}</span></div><div className="cart-head-actions"><button className="icon-button mobile-cart-close" aria-label="Close current bill" onClick={() => setMobileBillOpen(false)}><X size={19} /></button></div></div>
+          <div className="bill-product-search">
+            <div className="bill-search-input"><Search size={18} /><input value={billQuery} onChange={(e) => setBillQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleBillSearchEnter()} placeholder="Search product or barcode to add..." autoComplete="off" />{billQuery && <button type="button" onClick={() => setBillQuery("")} aria-label="Clear product search"><X size={15} /></button>}</div>
+            {billQuery && <div className="bill-search-results">{billSearchProducts.length ? billSearchProducts.map((product) => <button type="button" key={product.id} className="bill-search-result" onClick={() => addFromBillSearch(product)}><span><strong>{language === "ta" && product.tamil ? product.tamil : product.name}</strong><small>Stock {Math.round(product.stock)}{product.barcode ? ` · ${product.barcode}` : ""}</small></span><span><strong>{currency(product.price)}</strong><Plus size={17} /></span></button>) : <div className="bill-search-empty">No matching product</div>}</div>}
+          </div>
           <div className="billing-customer"><label><span>Customer name <small>(optional)</small></span><input value={billingCustomerName} onChange={(e) => setBillingCustomerName(e.target.value)} placeholder="Walk-in customer" /></label><label><span>Phone number <small>(optional)</small></span><input inputMode="tel" value={billingCustomerPhone} onChange={(e) => setBillingCustomerPhone(e.target.value.replace(/[^0-9+ -]/g, ""))} placeholder="+91" /></label></div>
           <div className="cart-items">{cart.length ? cart.map((item) => <article className="cart-item no-icon" key={item.id}><div className="cart-product-copy"><strong>{language === "ta" && item.tamil ? item.tamil : item.name}</strong><span>{currency(item.price)} × {item.quantity}</span><div className="qty-control"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={13} /></button><strong>{item.quantity}</strong><button onClick={() => updateQuantity(item.id, 1)}><Plus size={13} /></button></div></div><div className="cart-line-price"><strong>{currency(item.price * item.quantity)}</strong><button onClick={() => setCart((current) => current.filter((row) => row.id !== item.id))}><Trash2 size={15} /></button></div></article>) : <div className="empty-cart"><ShoppingBasket size={36} /><strong>Your bill is empty</strong><span>Search and tap a product to begin.</span></div>}</div>
           <div className="totals"><div><span>{t.subtotal}</span><strong>{currency(subtotal)}</strong></div><div className="savings"><span>{t.savings}</span><strong>− {currency(savings)}</strong></div><div><span>{t.tax}</span><strong>{currency(tax)}</strong></div><div className="grand-total"><span>{t.total}<small>Rounded off {currency(roundedTotal - subtotal)}</small></span><strong>{currency(roundedTotal)}</strong></div></div>
