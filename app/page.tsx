@@ -142,6 +142,7 @@ export default function Home() {
   const [userName, setUserName] = useState("Arun Manager");
   const [userRole, setUserRole] = useState("admin");
   const [saleBusy, setSaleBusy] = useState(false);
+  const [saleError, setSaleError] = useState("");
   const [invoiceLabel, setInvoiceLabel] = useState("NS-NEW");
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
@@ -351,25 +352,27 @@ export default function Home() {
     }
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
-    setSaleBusy(true);
+    setSaleBusy(true); setSaleError("");
     try {
       const { data, error } = await supabase.rpc("complete_sale", {
         p_store_id: storeId,
         p_customer_id: null,
         p_register_session_id: null,
         p_items: cart.map((item) => ({ product_id: item.id, quantity: item.quantity, discount_amount: 0 })),
-        p_payments: [{ method: paymentMode.toLowerCase(), amount: roundedTotal, reference_no: null }],
+        p_payments: [{ method: paymentMode.toLowerCase(), amount: Number(roundedTotal.toFixed(2)), reference_no: null }],
         p_discount: 0,
         p_notes: null,
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message || error.details || error.hint || "Sale transaction failed");
       const result = data as { invoice_no?: string } | null;
       const completedInvoice = result?.invoice_no || "NS-SAVED";
       setPaymentOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel(completedInvoice);
       await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
-      notify(`Sale ${completedInvoice} saved to Supabase`);
-    } catch (saleError) {
-      notify(saleError instanceof Error ? saleError.message : "Sale could not be completed");
+      notify(`Sale ${completedInvoice} saved successfully`);
+    } catch (failure) {
+      const message = failure instanceof Error ? failure.message : "Sale could not be completed";
+      setSaleError(message);
+      notify(message);
     } finally { setSaleBusy(false); }
   };
   const openLiveAction = (mode: ActionMode) => {
@@ -546,7 +549,7 @@ export default function Home() {
     </section>
     <input ref={fileRef} className="visually-hidden" type="file" accept=".xlsx,.xls" onChange={importExcel} />
     {actionMode && <LiveActionModal mode={actionMode} products={products.map((product) => ({ id: product.id, name: product.name, price: product.price, gst: product.gst }))} suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name }))} busy={actionBusy} error={actionError} onClose={() => setActionMode(null)} onSubmit={handleActionSubmit} />}
-    {paymentOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Complete payment"><button className="modal-backdrop" onClick={() => !saleBusy && setPaymentOpen(false)} /><section className="payment-modal"><div className="modal-head"><div><span className="eyebrow"><ShieldCheck size={13} /> SECURE CHECKOUT</span><h2>Complete payment</h2><p>Invoice #{invoiceLabel} · {cart.length} line items</p></div><button className="icon-button" onClick={() => setPaymentOpen(false)} disabled={saleBusy}><X size={20} /></button></div><div className="payment-total"><span>Amount to collect</span><strong>{currency(roundedTotal)}</strong><small>You saved the customer {currency(savings)}</small></div><div className="payment-modes">{(["Cash", "UPI", "Card"] as const).map((mode) => { const Icon = mode === "Cash" ? Banknote : mode === "UPI" ? Landmark : CreditCard; return <button key={mode} className={paymentMode === mode ? "active" : ""} onClick={() => setPaymentMode(mode)}><Icon size={20} /><strong>{mode}</strong><small>{mode === "Cash" ? "Notes & coins" : mode === "UPI" ? "Scan any UPI" : "Debit / credit"}</small>{paymentMode === mode && <Check size={15} />}</button>; })}</div>{paymentMode === "Cash" ? <div className="cash-box"><label>Cash received<div><IndianRupee size={18} /><input autoFocus inputMode="decimal" value={cashReceived} onChange={(e) => setCashReceived(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={String(roundedTotal)} /></div></label><div className="cash-shortcuts">{[roundedTotal, 500, 1000, 2000].filter((value, index, values) => value >= roundedTotal && values.indexOf(value) === index).map((value) => <button key={value} onClick={() => setCashReceived(String(value))}>{currency(value)}</button>)}</div><div className="change-row"><span>Return change</span><strong>{currency(change)}</strong></div></div> : paymentMode === "UPI" ? <div className="upi-box"><div className="qr-demo"><Grid2X2 size={54} /></div><div><strong>Scan to pay {currency(roundedTotal)}</strong><span>Waiting for payment confirmation…</span><p><span className="pulse-dot" /> Nila Supermarket UPI</p></div></div> : <div className="terminal-box"><CreditCard size={32} /><div><strong>Card terminal ready</strong><span>Ask the customer to tap, insert or swipe.</span></div><RefreshCcw size={18} className="spin" /></div>}<button className="complete-payment" onClick={completeSale} disabled={saleBusy}>{saleBusy ? <LoaderCircle size={19} className="spin" /> : <Check size={19} />} {saleBusy ? "Saving secure sale…" : `Confirm ${paymentMode} payment`} <span>{currency(roundedTotal)}</span></button><p className="modal-note"><Printer size={14} /> {cloudStatus === "live" ? "Sale, stock and audit trail will update together" : "Demo receipt · sign in to save to cloud"}</p></section></div>}
+    {paymentOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Complete payment"><button className="modal-backdrop" onClick={() => !saleBusy && setPaymentOpen(false)} /><section className="payment-modal"><div className="modal-head"><div><span className="eyebrow"><ShieldCheck size={13} /> SECURE CHECKOUT</span><h2>Complete payment</h2><p>Invoice #{invoiceLabel} · {cart.length} line items</p></div><button className="icon-button" onClick={() => setPaymentOpen(false)} disabled={saleBusy}><X size={20} /></button></div><div className="payment-total"><span>Amount to collect</span><strong>{currency(roundedTotal)}</strong><small>You saved the customer {currency(savings)}</small></div><div className="payment-modes">{(["Cash", "UPI", "Card"] as const).map((mode) => { const Icon = mode === "Cash" ? Banknote : mode === "UPI" ? Landmark : CreditCard; return <button key={mode} className={paymentMode === mode ? "active" : ""} onClick={() => setPaymentMode(mode)}><Icon size={20} /><strong>{mode}</strong><small>{mode === "Cash" ? "Notes & coins" : mode === "UPI" ? "Scan any UPI" : "Debit / credit"}</small>{paymentMode === mode && <Check size={15} />}</button>; })}</div>{paymentMode === "Cash" ? <div className="cash-box"><label>Cash received<div><IndianRupee size={18} /><input autoFocus inputMode="decimal" value={cashReceived} onChange={(e) => setCashReceived(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={String(roundedTotal)} /></div></label><div className="cash-shortcuts">{[roundedTotal, 500, 1000, 2000].filter((value, index, values) => value >= roundedTotal && values.indexOf(value) === index).map((value) => <button key={value} onClick={() => setCashReceived(String(value))}>{currency(value)}</button>)}</div><div className="change-row"><span>Return change</span><strong>{currency(change)}</strong></div></div> : paymentMode === "UPI" ? <div className="upi-box"><div className="qr-demo"><Grid2X2 size={54} /></div><div><strong>Scan to pay {currency(roundedTotal)}</strong><span>Waiting for payment confirmation…</span><p><span className="pulse-dot" /> Nila Supermarket UPI</p></div></div> : <div className="terminal-box"><CreditCard size={32} /><div><strong>Card terminal ready</strong><span>Ask the customer to tap, insert or swipe.</span></div><RefreshCcw size={18} className="spin" /></div>}{saleError && <p className="auth-alert error">{saleError}</p>}<button className="complete-payment" onClick={completeSale} disabled={saleBusy}>{saleBusy ? <LoaderCircle size={19} className="spin" /> : <Check size={19} />} {saleBusy ? "Saving secure sale…" : `Confirm ${paymentMode} payment`} <span>{currency(roundedTotal)}</span></button><p className="modal-note"><Printer size={14} /> {cloudStatus === "live" ? "Sale, stock and audit trail will update together" : "Demo receipt · sign in to save to cloud"}</p></section></div>}
     {authOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Nila cloud access"><button className="modal-backdrop" onClick={() => setAuthOpen(false)} /><section className="auth-modal">
       <div className="auth-brand"><Logo /><button className="icon-button" onClick={() => setAuthOpen(false)} aria-label="Close"><X size={19} /></button></div>
       {cloudStatus === "live" ? <div className="account-panel"><span className="account-avatar">{profileInitials}</span><span className="eyebrow"><Cloud size={13} /> CLOUD ACCOUNT</span><h2>{userName}</h2><p>{userEmail}</p><div className="account-meta"><span><Store size={16} />{storeName}</span><span><ShieldCheck size={16} />{roleLabel(userRole)}</span><span><Database size={16} />Supabase connected</span></div><button className="signout-button" onClick={signOut}><LogOut size={17} /> Sign out from this device</button></div> : <>
