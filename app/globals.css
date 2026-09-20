@@ -673,3 +673,7 @@ kbd { border: 1px solid #dfe3ec; border-bottom-width: 2px; border-radius: 5px; p
   .mobile-bill-trigger b { min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 99px; background: rgba(255,255,255,.18); font-size: 9px; }
   .mobile-bill-trigger strong { font-size: 12px; }
 }
+
+.billing-customer{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 0}.billing-customer label{display:grid;gap:5px;font-size:10px;font-weight:700;color:var(--muted)}.billing-customer label span small{font-weight:500}.billing-customer input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 11px;background:#fff;color:var(--ink);outline:none}.billing-customer input:focus{border-color:#5572d8;box-shadow:0 0 0 3px rgba(85,114,216,.1)}.print-last{width:100%;justify-content:center;margin-top:8px}
+@media (max-width:760px){.billing-customer{grid-template-columns:1fr}.payment-modal{width:min(94vw,620px);max-height:88vh;overflow:auto}}
+@media print{body *{visibility:hidden}.payment-modal,.payment-modal *{visibility:visible}.payment-modal{position:absolute;inset:0;width:80mm!important;max-height:none;box-shadow:none;border-radius:0}.modal-backdrop,.modal-head button,.complete-payment{display:none!important}}
