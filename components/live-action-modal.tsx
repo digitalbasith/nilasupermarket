@@ -12,13 +12,43 @@ import {
   Plus,
   ReceiptIndianRupee,
   ShieldCheck,
-  Store,
   Truck,
   UserRound,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+
+const tamilWords: Record<string, string> = {
+  aavin:"ஆவின்", milk:"மில்க்", full:"ஃபுல்", cream:"க்ரீம்", bread:"பிரெட்", rice:"ரைஸ்",
+  oil:"ஆயில்", salt:"சால்ட்", gold:"கோல்ட்", biscuits:"பிஸ்கட்ஸ்", biscuit:"பிஸ்கட்",
+  classic:"கிளாசிக்", strong:"ஸ்ட்ராங்", teeth:"டீத்", fresh:"ஃப்ரெஷ்", red:"ரெட்",
+  onion:"ஆனியன்", sunflower:"சன்ஃப்ளவர்", powder:"பவுடர்", power:"பவர்", plus:"பிளஸ்"
+};
+function transliterateWord(word: string) {
+  const lower = word.toLowerCase();
+  if (tamilWords[lower]) return tamilWords[lower];
+  const consonants: Record<string,string> = { kh:"க",gh:"க",ch:"ச",sh:"ஷ",th:"த",dh:"த",ph:"ஃப",bh:"ப",ng:"ங",zh:"ழ",k:"க",g:"க",c:"ச",j:"ஜ",t:"ட",d:"ட",n:"ந",p:"ப",b:"ப",m:"ம",y:"ய",r:"ர",l:"ல",v:"வ",w:"வ",s:"ஸ",h:"ஹ",f:"ஃப",z:"ஸ",q:"க",x:"க்ஸ" };
+  const vowels: Record<string,{solo:string,sign:string}> = {
+    aa:{solo:"ஆ",sign:"ா"},ee:{solo:"ஈ",sign:"ீ"},oo:{solo:"ஊ",sign:"ூ"},ai:{solo:"ஐ",sign:"ை"},au:{solo:"ஔ",sign:"ௌ"},ea:{solo:"ஈ",sign:"ீ"},
+    a:{solo:"அ",sign:""},i:{solo:"இ",sign:"ி"},u:{solo:"உ",sign:"ு"},e:{solo:"எ",sign:"ெ"},o:{solo:"ஒ",sign:"ொ"}
+  };
+  let out="", i=0;
+  while(i<lower.length){
+    if(!/[a-z]/.test(lower[i])){ out+=lower[i++]; continue; }
+    let vk = Object.keys(vowels).find(v=>lower.startsWith(v,i));
+    if(vk){ out+=vowels[vk].solo; i+=vk.length; continue; }
+    let ck = Object.keys(consonants).sort((a,b)=>b.length-a.length).find(k=>lower.startsWith(k,i));
+    if(!ck){ out+=lower[i++]; continue; }
+    const base=consonants[ck]; i+=ck.length;
+    vk=Object.keys(vowels).find(v=>lower.startsWith(v,i));
+    if(vk){ out+=base+vowels[vk].sign; i+=vk.length; } else out+=base+"்";
+  }
+  return out;
+}
+function englishToTamil(value: string) {
+  return value.split(/(\s+|[-/])/).map(part => /^[A-Za-z]+$/.test(part) ? transliterateWord(part) : part).join("");
+}
 
 export type ActionMode = "product" | "customer" | "supplier" | "purchase" | "staff";
 
@@ -53,6 +83,7 @@ export function LiveActionModal({
   const copy = titles[mode];
   const [productName, setProductName] = useState("");
   const [tamilName, setTamilName] = useState("");
+  const [tamilManual, setTamilManual] = useState(false);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void onSubmit(mode, new FormData(event.currentTarget));
@@ -64,10 +95,10 @@ export function LiveActionModal({
       <header className="action-modal-head"><div><span className="eyebrow"><ShieldCheck size={13} /> {copy.eyebrow}</span><h2>{copy.title}</h2><p>{copy.description}</p></div><button className="icon-button" type="button" onClick={onClose} disabled={busy}><X size={19} /></button></header>
       <form className="action-form" onSubmit={submit}>
         {mode === "product" && <>
-          <div className="action-form-row"><label><span>Product name</span><div><Package size={17} /><input name="name" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Aavin Milk" required /></div></label><label><span>Tamil name (optional)</span><div><Package size={17} /><input name="tamil" value={tamilName} onChange={(e) => setTamilName(e.target.value)} placeholder="ஆவின் பால் — type Tamil if needed" /></div></label></div>
-          <div className="action-form-row"><Field name="barcode" label="Barcode" icon={Barcode} placeholder="8901234567890" required /><Field name="category" label="Category" icon={Boxes} placeholder="Dairy" required /></div>
-          <div className="action-form-row three"><Field name="unit" label="Unit / size (optional)" icon={Store} placeholder="Optional: 500 ml" /><Field name="price" label="Sale price" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="mrp" label="MRP" icon={IndianRupee} type="number" min="0" step="0.01" required /></div>
-          <div className="action-form-row"><Field name="stock" label="Opening stock" icon={Boxes} type="number" step="0.001" defaultValue="0" required /><Field name="gst" label="GST % (optional)" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" placeholder="Optional — defaults to 0" /></div>
+          <div className="action-form-row"><label><span>Product name</span><div><Package size={17} /><input name="name" value={productName} onChange={(e) => { const next=e.target.value; setProductName(next); if(!tamilManual) setTamilName(englishToTamil(next)); }} placeholder="Aavin Milk" required /></div></label><label><span>Tamil name (auto / editable)</span><div><Package size={17} /><input name="tamil" value={tamilName} onChange={(e) => { setTamilManual(true); setTamilName(e.target.value); }} placeholder="Automatically transliterated" /></div></label></div>
+          <div className="action-form-row"><Field name="barcode" label="Barcode (optional)" icon={Barcode} placeholder="Optional" /><Field name="category" label="Category (optional)" icon={Boxes} placeholder="Optional — General" /></div>
+          <div className="action-form-row"><Field name="price" label="Sale price" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="mrp" label="MRP" icon={IndianRupee} type="number" min="0" step="0.01" required /></div>
+          <div className="action-form-row"><Field name="stock" label="Opening stock (count)" icon={Boxes} type="number" min="0" step="1" defaultValue="0" required /><Field name="gst" label="GST % (optional)" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" placeholder="Optional — defaults to 0" /></div>
         </>}
         {(mode === "customer" || mode === "supplier") && <>
           <Field name="name" label={mode === "customer" ? "Customer name" : "Supplier name"} icon={mode === "customer" ? UserRound : Truck} placeholder={mode === "customer" ? "R. Kavitha" : "Sri Lakshmi Distributors"} required />
