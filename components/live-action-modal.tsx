@@ -46,7 +46,7 @@ function transliterateWord(word: string) {
   }
   return out;
 }
-function englishToTamil(value: string) {
+export function englishToTamil(value: string) {
   return value.split(/(\s+|[-/])/).map(part => /^[A-Za-z]+$/.test(part) ? transliterateWord(part) : part).join("");
 }
 
