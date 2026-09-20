@@ -25,6 +25,7 @@ type AccountEntry = { id: string; account_no: string; entry_date: string; entry_
 type ReturnRecord = { id: string; document_no: string; source_no: string; total_amount: number; reason: string | null; created_at: string; kind: "sale" | "purchase" };
 type BusinessDocument = { id: string; document_no: string; document_type: string; document_date: string; source_type: string | null; source_id: string | null; status: string; amount: number; payload: Record<string, unknown>; created_at: string };
 type LineItem = { id: string; product_id: string | null; product_name: string; quantity: number; amount: number };
+type ProfitSummary = { sales: number; cost: number; gross_profit: number; margin_percent: number };
 
 type Props = {
   module: EnterpriseModule;
@@ -37,6 +38,7 @@ type Props = {
   customers: Customer[];
   suppliers: Supplier[];
   staff: Staff[];
+  profitSummary: ProfitSummary;
   onNotify: (message: string) => void;
   onRefresh: () => Promise<void>;
   onNavigate: (section: string) => void;
@@ -143,7 +145,7 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("en-IN"
 const safeNumber = (value: unknown) => Number(value || 0);
 
 export function EnterpriseSuite(props: Props) {
-  const { module, language, live, storeId, products, sales, purchases, customers, suppliers, staff, onNotify, onRefresh, onNavigate, onOpenPurchase, onRequireSignIn, onSignOut } = props;
+  const { module, language, live, storeId, products, sales, purchases, customers, suppliers, staff, profitSummary, onNotify, onRefresh, onNavigate, onOpenPurchase, onRequireSignIn, onSignOut } = props;
   const [accounts, setAccounts] = useState<AccountEntry[]>([]);
   const [returns, setReturns] = useState<ReturnRecord[]>([]);
   const [documents, setDocuments] = useState<BusinessDocument[]>([]);
@@ -224,7 +226,7 @@ export function EnterpriseSuite(props: Props) {
   const filteredPurchases = useMemo(() => purchases.filter((row) => (!fromDate || row.invoice_date >= fromDate) && (!toDate || row.invoice_date <= toDate)), [purchases, fromDate, toDate]);
   const filteredAccounts = useMemo(() => accounts.filter((row) => (!fromDate || row.entry_date >= fromDate) && (!toDate || row.entry_date <= toDate)), [accounts, fromDate, toDate]);
 
-  const report = useMemo(() => buildReport(selectedReport, { products, sales: filteredSales, purchases: filteredPurchases, accounts: filteredAccounts, returns, documents, customers, suppliers, staff }), [selectedReport, products, filteredSales, filteredPurchases, filteredAccounts, returns, documents, customers, suppliers, staff]);
+  const report = useMemo(() => buildReport(selectedReport, { products, sales: filteredSales, purchases: filteredPurchases, accounts: filteredAccounts, returns, documents, customers, suppliers, staff }, profitSummary), [selectedReport, products, filteredSales, filteredPurchases, filteredAccounts, returns, documents, customers, suppliers, staff, profitSummary]);
 
   const openAction = (next: string) => {
     if (next === "navigate_purchase_entry") { onOpenPurchase(); return; }
@@ -350,7 +352,7 @@ const paymentOptions = [{ value: "cash", label: "Cash" }, { value: "upi", label:
 
 function dateInRange(iso: string, from: string, to: string) { const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(iso)); return (!from || date >= from) && (!to || date <= to); }
 
-function buildReport(key: string, data: { products: Product[]; sales: Sale[]; purchases: Purchase[]; accounts: AccountEntry[]; returns: ReturnRecord[]; documents: BusinessDocument[]; customers: Customer[]; suppliers: Supplier[]; staff: Staff[] }) {
+function buildReport(key: string, data: { products: Product[]; sales: Sale[]; purchases: Purchase[]; accounts: AccountEntry[]; returns: ReturnRecord[]; documents: BusinessDocument[]; customers: Customer[]; suppliers: Supplier[]; staff: Staff[] }, profit: ProfitSummary) {
   const salesTotal = data.sales.filter((row) => row.status === "completed").reduce((sum, row) => sum + row.grand_total, 0);
   const purchaseTotal = data.purchases.filter((row) => row.status !== "cancelled").reduce((sum, row) => sum + row.grand_total, 0);
   const returnTotal = data.returns.reduce((sum, row) => sum + row.total_amount, 0);
@@ -359,7 +361,7 @@ function buildReport(key: string, data: { products: Product[]; sales: Sale[]; pu
   else if (["purchase","purchase_register"].includes(key)) { title = "Purchase register"; columns = ["Date", "Purchase", "Supplier invoice", "Status", "Total", "Balance"]; rows = data.purchases.map((row) => [row.invoice_date, row.purchase_no, row.supplier_invoice_no || "—", row.status, row.grand_total, row.balance_due]); }
   else if (["accounts","refunds"].includes(key)) { title = key === "refunds" ? "Refund register" : "Accounts register"; columns = ["Date", "Document", "Type", "Party", "Method", "Amount", "Status"]; rows = data.accounts.filter((row) => key !== "refunds" || row.entry_type === "refund").map((row) => [row.entry_date, row.account_no, row.entry_type.replaceAll("_", " "), getRelationName(row.customers) || getRelationName(row.suppliers) || row.party_type, row.payment_method, row.amount, row.status]); }
   else if (key === "inventory") { title = "Inventory valuation"; columns = ["Product", "Barcode", "Category", "Stock", "Sale price", "Stock value", "Status"]; rows = data.products.map((row) => [row.name, row.barcode, row.category, row.stock, row.price, Number((row.stock * row.price).toFixed(2)), row.stock <= 0 ? "Out of stock" : row.stock <= 10 ? "Low" : "Healthy"]); }
-  else if (["earning","gp"].includes(key)) { title = key === "gp" ? "Gross profit estimate" : "Earning statement"; columns = ["Metric", "Amount"]; rows = [["Net sales", salesTotal], ["Purchases", purchaseTotal], ["Returns", returnTotal], ["Estimated gross margin", salesTotal - purchaseTotal - returnTotal]]; }
+  else if (["earning","gp"].includes(key)) { title = key === "gp" ? "Gross profit report" : "Earning statement"; columns = ["Metric", "Amount"]; rows = [["Net sales", profit.sales], ["Cost of goods sold", profit.cost], ["Gross profit", profit.gross_profit], ["Gross margin %", profit.margin_percent]]; }
   else if (key === "gst") { title = "GST summary"; columns = ["Tax stream", "Tax amount", "Taxable document value"]; rows = [["Output GST — Sales", data.sales.reduce((sum, row) => sum + row.tax_total, 0), salesTotal], ["Input GST — Purchases", data.purchases.reduce((sum, row) => sum + safeNumber(row.tax_total), 0), purchaseTotal]]; }
   else if (key === "customer") { title = "Customer activity"; columns = ["Customer", "Phone", "Visits", "Lifetime value", "Outstanding", "Loyalty points"]; rows = data.customers.map((row) => [row.name, row.phone || "—", row.visit_count, row.lifetime_value, row.outstanding_balance, row.loyalty_points]); }
   else if (key === "product") { title = "Product master brief"; columns = ["Product", "Tamil", "Barcode", "Category", "Stock", "Price", "GST %"]; rows = data.products.map((row) => [row.name, row.tamil, row.barcode, row.category, row.stock, row.price, row.gst]); }
@@ -371,7 +373,7 @@ function buildReport(key: string, data: { products: Product[]; sales: Sale[]; pu
   else if (key === "returns") { title = "Sales & purchase returns"; columns = ["Date", "Return", "Source", "Type", "Amount", "Reason"]; rows = data.returns.map((row) => [formatDate(row.created_at), row.document_no, row.source_no, row.kind, row.total_amount, row.reason || "—"]); }
   else if (["orders","delivery"].includes(key)) { title = key === "delivery" ? "Home delivery report" : "Order management report"; columns = ["Date", "Document", "Type", "Status", "Amount"]; rows = data.documents.filter((row) => key !== "delivery" ? ["quotation","home_delivery"].includes(row.document_type) : row.document_type === "home_delivery").map((row) => [row.document_date, row.document_no, row.document_type.replaceAll("_", " "), row.status, row.amount]); }
   else if (key === "pivot") { title = "Pivot-ready export"; columns = ["Date", "Source", "Document", "Type", "Status", "Amount"]; rows = [...data.sales.map((row) => [formatDate(row.created_at), "Sales", row.invoice_no, "sale", row.status, row.grand_total]), ...data.purchases.map((row) => [row.invoice_date, "Purchase", row.purchase_no, "purchase", row.status, row.grand_total]), ...data.accounts.map((row) => [row.entry_date, "Accounts", row.account_no, row.entry_type, row.status, row.amount])]; }
-  return { title, columns, rows, summary: [{ label: "Sales", value: currency(salesTotal) }, { label: "Purchases", value: currency(purchaseTotal) }, { label: "Returns", value: currency(returnTotal) }, { label: "Rows", value: String(rows.length) }] };
+  return { title, columns, rows, summary: [{ label: "Sales", value: currency(salesTotal) }, { label: "Gross profit", value: currency(profit.gross_profit) }, { label: "Margin", value: `${profit.margin_percent.toFixed(1)}%` }, { label: "Purchases", value: currency(purchaseTotal) }, { label: "Rows", value: String(rows.length) }] };
 }
 
 function downloadCsv(filename: string, columns: string[], rows: Array<Array<string | number>>) { const csv = [columns, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n"); downloadBlob(filename, new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" })); }
