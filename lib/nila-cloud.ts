@@ -67,8 +67,8 @@ export async function syncCatalogToCloud(
       selling_price: sellingPrice,
       mrp,
       gst_rate: Math.min(100, Math.max(0, Number(item.gst) || 0)),
-      current_stock: Number(item.stock) || 0,
-      minimum_stock: Math.min(10, Math.max(0, Number(item.stock) || 0)),
+      current_stock: Math.max(0, Math.round(Number(item.stock) || 0)),
+      minimum_stock: Math.min(10, Math.max(0, Math.round(Number(item.stock) || 0))),
       active: true,
       metadata: { icon: item.icon || "📦", tint: item.tint || "blue" },
     };
