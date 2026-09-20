@@ -813,3 +813,20 @@ body { font-size: 15px; }
   .sale-undo-bar { left:12px; right:12px; bottom:84px; min-width:0; }
   .product-table.simplified { overflow-x:auto; }
 }
+
+
+/* Readability and no-product-image refinements */
+.table-head-row { font-size: 9px; }
+.table-row > span > strong { font-size: 10.5px; }
+.table-row > span > small { font-size: 9px; }
+.table-product > span > strong { font-size: 11px; }
+.table-product > span > small { font-size: 9px; }
+.stock-row > div strong, .activity-row strong { font-size: 11px; }
+.stock-row small, .activity-row small { font-size: 9px; }
+.stock-count strong { font-size: 12px; }
+.stock-row > button { font-size: 9px; }
+.reorder-row.no-product-icon { grid-template-columns: minmax(0,1fr) 78px 52px; }
+.reorder-row > div strong { font-size: 11px; }
+.reorder-row > div small { font-size: 9px; }
+.reorder-row > strong { font-size: 10px; }
+.reorder-row > button { font-size: 9px; }
