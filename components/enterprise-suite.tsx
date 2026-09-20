@@ -108,7 +108,7 @@ const featureMap: Record<EnterpriseModule, Feature[]> = {
     { title: "Product-customer", ta: "பொருள்-வாடிக்கையாளர்", description: "Customer and product activity", taDescription: "வாடிக்கையாளர் மற்றும் பொருள் செயல்பாடு", icon: Users, action: "report_customer" },
     { title: "Product brief", ta: "பொருள் சுருக்கம்", description: "Complete product master brief", taDescription: "முழு பொருள் மாஸ்டர் சுருக்கம்", icon: PackageCheck, action: "report_product" },
     { title: "Control report", ta: "கண்ட்ரோல் அறிக்கை", description: "Voids, corrections and verification", taDescription: "ரத்து, திருத்தம் மற்றும் சரிபார்ப்பு", icon: ShieldCheck, action: "report_control" },
-    { title: "GP report", ta: "மொத்த லாப அறிக்கை", description: "Gross profit estimate", taDescription: "மொத்த லாப மதிப்பீடு", icon: ChartNoAxesCombined, action: "report_gp" },
+    { title: "GP report", ta: "மொத்த லாப அறிக்கை", description: "Live gross profit from sale cost", taDescription: "விற்பனை செலவை அடிப்படையாக கொண்ட மொத்த லாபம்", icon: ChartNoAxesCombined, action: "report_gp" },
     { title: "Top report", ta: "டாப் அறிக்கை", description: "Top bills and stock value", taDescription: "அதிக பில்கள் மற்றும் ஸ்டாக் மதிப்பு", icon: BadgeIndianRupee, action: "report_top" },
     { title: "Event log", ta: "நிகழ்வு பதிவு", description: "Operational audit documents", taDescription: "செயல்பாட்டு ஆடிட் பதிவுகள்", icon: History, action: "report_events" },
     { title: "Hourly sales/purchase", ta: "மணிநேர விற்பனை/கொள்முதல்", description: "Hourly business movement", taDescription: "மணிநேர வணிக இயக்கம்", icon: FileClock, action: "report_hourly" },
