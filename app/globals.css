@@ -943,3 +943,84 @@ body { font-size: 15px; }
     border-radius:0 !important;
   }
 }
+
+
+/* Functional settings sections */
+.settings-options { display:grid; gap:10px; padding:17px 0; }
+.settings-switch-row,
+.settings-input-row {
+  min-height:64px;
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border:1px solid #e1e5f1;
+  border-radius:10px;
+  background:#fafbfe;
+}
+.settings-switch-row > span,
+.settings-input-row > span { min-width:0; }
+.settings-switch-row strong,
+.settings-switch-row small,
+.settings-input-row strong,
+.settings-input-row small { display:block; }
+.settings-switch-row strong,
+.settings-input-row strong { color:#343d51; font-size:11px; }
+.settings-switch-row small,
+.settings-input-row small { margin-top:4px; color:#8e96a7; font-size:9px; line-height:1.4; }
+.settings-switch-row > input[type="checkbox"] {
+  width:42px;
+  height:23px;
+  flex:0 0 auto;
+  accent-color:#3153c6;
+  cursor:pointer;
+}
+.settings-input-row > input {
+  width:120px;
+  height:38px;
+  padding:0 10px;
+  border:1px solid #dfe3ea;
+  border-radius:8px;
+  background:#fff;
+  color:#343d51;
+  font-size:12px;
+  outline:0;
+}
+.settings-input-row > input:focus { border-color:#8294d8; box-shadow:0 0 0 3px rgba(49,83,198,.07); }
+.settings-backup-card {
+  margin-top:17px;
+  padding:18px;
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  border:1px solid #e1e5f1;
+  border-radius:12px;
+  background:#fafbfe;
+}
+.settings-backup-card > svg { color:#4560c1; }
+.settings-backup-card strong,
+.settings-backup-card span { display:block; }
+.settings-backup-card strong { font-size:12px; }
+.settings-backup-card span { margin-top:4px; color:#8e96a7; font-size:9px; }
+.settings-note { margin:12px 0 0; color:#8e96a7; font-size:9px; }
+.settings-card .form-grid input,
+.settings-card .form-grid select { font-size:12px; height:42px; }
+.settings-card .form-grid label span { font-size:10px; }
+.settings-layout > aside button { font-size:11px; min-height:43px; }
+.settings-head h2 { font-size:16px; }
+.settings-head p { font-size:10px; }
+.settings-save > span { font-size:9px; }
+
+@media (max-width:760px) {
+  .settings-layout { grid-template-columns:1fr; }
+  .settings-layout > aside { display:flex; gap:6px; overflow-x:auto; padding:6px; }
+  .settings-layout > aside button { min-width:max-content; grid-template-columns:18px auto; padding:0 12px; }
+  .settings-layout > aside button svg:last-child { display:none; }
+  .settings-switch-row,.settings-input-row { align-items:flex-start; }
+  .settings-input-row { flex-direction:column; }
+  .settings-input-row > input { width:100%; }
+  .settings-backup-card { grid-template-columns:32px 1fr; }
+  .settings-backup-card .primary-button { grid-column:1/-1; width:100%; }
+}
