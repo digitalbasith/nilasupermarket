@@ -830,3 +830,63 @@ body { font-size: 15px; }
 .reorder-row > div small { font-size: 9px; }
 .reorder-row > strong { font-size: 10px; }
 .reorder-row > button { font-size: 9px; }
+
+
+/* Product quick-add inside the Current Bill popup */
+.bill-product-search { position: relative; margin-top: 12px; }
+.bill-search-input {
+  min-height: 46px;
+  padding: 0 10px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid #cdd6f3;
+  border-radius: 12px;
+  background: #f9faff;
+  color: #526bc9;
+}
+.bill-search-input:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(49,83,198,.08); background:#fff; }
+.bill-search-input input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--ink); font-size:14px; }
+.bill-search-input input::placeholder { color:#9ca4b5; }
+.bill-search-input > button { width:28px; height:28px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:#9299a8; cursor:pointer; }
+.bill-search-results {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #dfe4f1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(30,42,80,.16);
+}
+.bill-search-result {
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.bill-search-result:hover { background:#f3f6ff; }
+.bill-search-result > span:first-child { min-width:0; }
+.bill-search-result strong, .bill-search-result small { display:block; }
+.bill-search-result > span:first-child strong { overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.bill-search-result small { margin-top:3px; color:#8c94a6; font-size:10px; }
+.bill-search-result > span:last-child { flex:0 0 auto; display:flex; align-items:center; gap:8px; color:var(--blue); }
+.bill-search-result > span:last-child strong { font-size:12px; color:#222b3f; }
+.bill-search-empty { padding:16px 10px; color:#8f97a8; font-size:12px; text-align:center; }
+
+@media (max-width:760px) {
+  .bill-search-results { max-height: 190px; }
+  .bill-search-input { min-height: 48px; }
+}
